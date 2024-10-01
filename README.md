@@ -1,4 +1,8 @@
+
 <!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
+
+<link rel="stylesheet" type='text/css' href="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/devicon.min.css" />
+          
 <a id="readme-top"></a>
 <!--
 *** Thanks for checking out the Best-README-Template. If you have a suggestion
@@ -82,18 +86,18 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-
+This is a Shell project that I am currently working on being built in Golang. I would like it to be incremental working on it perpetually to improve and increase its functionality and use-case in hopes of it evolving to a full-fledged shell.
 <!--[![Product Name Screen Shot][product-screenshot]]()-->
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `CK-7vn`, `Go-shell`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `go-shell`, `project_description`
-
+<!--Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `CK-7vn`, `Go-shell`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `go-shell`, `project_description`-->
+<!---->
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
 ### Built With
 
-* [![Next][Golang]][Next-url]
+* [![Golang][Golang]][ <i class="devicon-go-plain colored"></i>]
 <!--* [![React][React.js]][React-url]-->
 <!--* [![Vue][Vue.js]][Vue-url]-->
 <!--* [![Angular][Angular.io]][Angular-url]-->
@@ -126,7 +130,10 @@ Here's a blank template to get started: To avoid retyping too much info. Do a se
    ```sh
    git clone https://github.com/CK-7vn/Go-shell.git
    ```
-2. 
+2. Run the shell 
+``` sh 
+    go run .```
+
 <!--3. Install NPM packages-->
 <!---->
 <!--   ```sh-->
@@ -136,11 +143,11 @@ Here's a blank template to get started: To avoid retyping too much info. Do a se
 <!--   ```js-->
 <!--   const API_KEY = 'ENTER YOUR API';-->
 <!--   ```-->
-5. Change git remote url to avoid accidental pushes to base project
-   ```sh
-   git remote set-url origin CK-7vn/Go-shell
-   git remote -v # confirm the changes
-   ```
+<!--5. Change git remote url to avoid accidental pushes to base project-->
+<!--   ```sh-->
+<!--   git remote set-url origin CK-7vn/Go-shell-->
+<!--   git remote -v # confirm the changes-->
+<!--   ```-->
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -160,10 +167,14 @@ Here's a blank template to get started: To avoid retyping too much info. Do a se
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
+- [ ] Pipes
+- [ ] Redirects
+- [ ] Background Process
+- [ ] Variable assignment
+- [ ] Language functionality
+    - [ ] for loops
+    - [ ] while loops 
+    - [ ] ?
 
 See the [open issues](https://github.com/CK-7vn/Go-shell/issues) for a full list of proposed features (and known issues).
 
