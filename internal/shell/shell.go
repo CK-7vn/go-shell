@@ -4,19 +4,20 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"go-shell/internal/lexer"
 	"go-shell/internal/parser"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
+	"syscall"
 )
 
 type Shell struct {
 	envVars    map[string]string
-	cmd        string
+	Cmd        string
 	scanr      *bufio.Scanner
 	commandMap map[string]func(arg ...string) error
-	parser     *parser.Parser
 }
 
 func defaultVar() map[string]string {
@@ -36,9 +37,10 @@ func defaultVar() map[string]string {
 func NewShell() *Shell {
 	return &Shell{
 		envVars:    defaultVar(),
-		cmd:        "",
+		Cmd:        "",
 		scanr:      bufio.NewScanner(os.Stdin),
 		commandMap: make(map[string]func(arg ...string) error),
+		// parser: parser.NewParser(),
 	}
 }
 func (s *Shell) GetPrompt() string {
@@ -68,6 +70,7 @@ func (s *Shell) InitCommandMap() {
 			fmt.Println("help  - Show help information")
 			fmt.Println("export - Export local environment variables")
 			fmt.Println("exit - Exit the shell")
+			fmt.Println("printCmd - format: printCmd <command> prints the AST representation of the command")
 			return nil
 		},
 		"export": func(args ...string) error {
@@ -79,7 +82,31 @@ func (s *Shell) InitCommandMap() {
 			s.handleSetVar(key, val)
 			return nil
 		},
+		"cd": func(args ...string) error {
+			if len(args) == 0 {
+				syscall.Chdir("~")
+			}
+			return nil
+		},
 		"exit": exit,
+		"printCmd": func(args ...string) error {
+			if len(args) == 0 {
+				return fmt.Errorf("usage: printCmd <command>\n")
+			}
+
+			cmdString := strings.Join(args, " ")
+			fmt.Printf("cmdString is: %s\n", cmdString)
+
+			lex := lexer.NewLexer(strings.NewReader(cmdString))
+			parse := parser.NewParser(lex)
+			cmd, err := parse.Parse()
+			if err != nil {
+				fmt.Printf("error parsing command")
+			}
+			fmt.Printf("AST for command: %s\n", cmdString)
+			s.printCommand(cmd, " ")
+			return nil
+		},
 	}
 }
 
@@ -104,34 +131,53 @@ func (s *Shell) executeExternal(program string, args []string) error {
 	return cmd.Run()
 }
 
-func (s *Shell) executeNode(node *parser.Node) error {
-	if node.Type != parser.NTExec {
-		return errors.New("unsupported node type")
-	}
-
-	if len(node.Argv) == 0 {
-		return errors.New("No command provided")
-	}
-
-	cmdName := node.Argv[0]
-	cmdArgs := node.Argv[1:]
-	if cmdFunc, exists := s.commandMap[cmdName]; exists {
-		return cmdFunc(cmdArgs...)
-	}
-	return s.executeExternal(cmdName, cmdArgs)
-}
-
 func (s *Shell) ReadInput() error {
 	if !s.scanr.Scan() {
 		return errors.New("Issue in the scanner")
 	}
 	//in future cmd will be a slice of runes and will have to handle one at a time, for now
-	s.cmd = s.scanr.Text()
+	s.Cmd = s.scanr.Text()
 	return nil
 }
 
+func (s *Shell) ParseAndExecute() error {
+	fields := strings.Fields(s.Cmd)
+	if len(fields) > 0 && fields[0] == "printCmd" {
+		return s.commandMap["printCmd"](fields[1:]...)
+	}
+	lex := lexer.NewLexer(strings.NewReader(s.Cmd))
+	parse := parser.NewParser(lex)
+	cmd, err := parse.Parse()
+	if err != nil {
+		return fmt.Errorf("error parsing cmd: %v", err)
+	}
+	return s.executeCommand(cmd)
+
+}
+
+func (s *Shell) executeCommand(cmd *parser.Command) error {
+	switch cmd.Type {
+	case parser.CommandTypeSimple:
+		if builtin, ok := s.commandMap[cmd.Cmd]; ok {
+			return builtin(cmd.Args...)
+		}
+		return s.executeExternal(cmd.Cmd, cmd.Args)
+	case parser.CommandTypePipe:
+		return fmt.Errorf("Pipe execution not implemented yet")
+	case parser.CommandTypeBackground:
+		return fmt.Errorf("Background execution not implemented yet")
+	case parser.CommandTypeList:
+		err := s.executeCommand(cmd.Left)
+		if err != nil {
+			return err
+		}
+		return s.executeCommand(cmd.Right)
+	default:
+		return fmt.Errorf("Unknown command type")
+	}
+}
 func (s *Shell) Evaluate() error {
-	args := strings.Fields(s.cmd)
+	args := strings.Fields(s.Cmd)
 	if len(args) == 0 {
 		return errors.New("No command")
 	}
@@ -146,7 +192,6 @@ func (s *Shell) Evaluate() error {
 		return cmdFunc(cmdArgs...)
 	}
 	return s.Execute(cmdName, cmdArgs)
-
 }
 
 func (s *Shell) Execute(program string, args []string) error {
@@ -168,4 +213,31 @@ func (s *Shell) Execute(program string, args []string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	return cmd.Run()
+}
+
+func (s *Shell) ParseCommand() (*parser.Command, error) {
+	lex := lexer.NewLexer(strings.NewReader(s.Cmd))
+	parse := parser.NewParser(lex)
+	return parse.Parse()
+}
+
+func (s *Shell) printCommand(cmd *parser.Command, indent string) {
+	fmt.Printf("%sCommand Type: %v\n", indent, cmd.Type)
+	if cmd.Cmd != "" {
+		fmt.Printf("%s Cmd: %v\n", indent, cmd.Cmd)
+	}
+	if len(cmd.Args) > 0 {
+		fmt.Printf("%sArgs: %v\n", indent, cmd.Args)
+	}
+	for _, redir := range cmd.Redirections {
+		fmt.Printf("%sRedirection: %v -> %s\n", indent, redir.Type, redir.File)
+	}
+	if cmd.Left != nil {
+		fmt.Printf("%sLeft:\n", indent)
+		s.printCommand(cmd.Left, indent+"  ")
+	}
+	if cmd.Right != nil {
+		fmt.Printf("%sRight:\n", indent)
+		s.printCommand(cmd.Right, indent+"  ")
+	}
 }
