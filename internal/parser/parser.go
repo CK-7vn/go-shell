@@ -12,10 +12,11 @@ const (
 	CommandTypePipe
 	CommandTypeBackground
 	CommandTypeList
+	CommandTypeAnd
 )
 
 type Redirection struct {
-	Type lexer.TokenType // TokenRedirectIn or TokenRedirectOut
+	Type lexer.TokenType
 	File string
 }
 
@@ -24,8 +25,8 @@ type Command struct {
 	Cmd          string
 	Args         []string
 	Redirections []Redirection
-	Left         *Command // For pipe and background commands
-	Right        *Command // For pipe and background commands
+	Left         *Command
+	Right        *Command
 }
 
 type Parser struct {
@@ -70,6 +71,19 @@ func (p *Parser) parseCommandList() (*Command, error) {
 		return nil, err
 	}
 
+	if p.curr.Type == lexer.TokenAnd {
+		andCmd := &Command{Type: CommandTypeAnd, Left: cmd}
+		err := p.nextToken()
+		if err != nil {
+			return nil, err
+		}
+		rightCmd, err := p.parseCommandList()
+		if err != nil {
+			return nil, err
+		}
+		andCmd.Right = rightCmd
+		return andCmd, nil
+	}
 	if p.curr.Type == lexer.TokenBackground {
 		listCmd := &Command{Type: CommandTypeList, Left: cmd}
 		err := p.nextToken()

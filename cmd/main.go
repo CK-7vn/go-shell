@@ -5,8 +5,6 @@ import (
 	"go-shell/internal/shell"
 )
 
-// Red if commands not going to work
-// Trie for autocomplete
 // TODO handle xdg environment variables
 // TODO implement globbing
 func main() {

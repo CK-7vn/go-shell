@@ -11,6 +11,7 @@ type TokenType int
 const (
 	TokenWord TokenType = iota
 	TokenPipe
+	TokenAnd
 	TokenRedirectOut
 	TokenRedirectIn
 	TokenBackground
@@ -54,6 +55,11 @@ func (l *Lexer) NextToken() (*Token, error) {
 		case '<':
 			return &Token{Type: TokenRedirectIn, Value: "<"}, nil
 		case '&':
+			nextRune, _, _ := l.input.ReadRune()
+			if nextRune == '&' {
+				return &Token{Type: TokenAnd, Value: "&&"}, nil
+			}
+			l.input.UnreadRune()
 			return &Token{Type: TokenBackground, Value: "&"}, nil
 		case '$':
 			return &Token{Type: TokenDollar, Value: "$"}, nil

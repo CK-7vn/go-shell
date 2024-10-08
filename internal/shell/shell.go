@@ -6,18 +6,20 @@ import (
 	"fmt"
 	"go-shell/internal/lexer"
 	"go-shell/internal/parser"
+	"go-shell/internal/trie"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
-	"syscall"
 )
 
 type Shell struct {
-	envVars    map[string]string
-	Cmd        string
-	scanr      *bufio.Scanner
-	commandMap map[string]func(arg ...string) error
+	envVars      map[string]string
+	Cmd          string
+	scanr        *bufio.Scanner
+	commandMap   map[string]func(arg ...string) error
+	commandTrie  *trie.Trie
+	currentInput string
 }
 
 func defaultVar() map[string]string {
@@ -36,16 +38,16 @@ func defaultVar() map[string]string {
 }
 func NewShell() *Shell {
 	return &Shell{
-		envVars:    defaultVar(),
-		Cmd:        "",
-		scanr:      bufio.NewScanner(os.Stdin),
-		commandMap: make(map[string]func(arg ...string) error),
-		// parser: parser.NewParser(),
+		envVars:     defaultVar(),
+		Cmd:         "",
+		scanr:       bufio.NewScanner(os.Stdin),
+		commandMap:  make(map[string]func(arg ...string) error),
+		commandTrie: trie.NewTrie(),
 	}
 }
 func (s *Shell) GetPrompt() string {
 	if prompt, exists := s.envVars["PS1"]; exists {
-		return fmt.Sprintf("%s %s >", prompt, s.envVars["PWD"])
+		return fmt.Sprintf("%s %s >\n >", prompt, s.envVars["PWD"])
 	}
 	//if git repo display git branch etc, BUILD a PS1 Basically
 	return fmt.Sprintf("%s >", s.envVars["PWD"])
@@ -84,8 +86,32 @@ func (s *Shell) InitCommandMap() {
 		},
 		"cd": func(args ...string) error {
 			if len(args) == 0 {
-				syscall.Chdir("~")
+				err := os.Chdir(s.envVars["HOME"])
+				if err != nil {
+					fmt.Printf("Failed to cd to home: %v", err)
+				}
+				cwd, err := os.Getwd()
+				if err != nil {
+					cwd = os.Getenv("PWD")
+				}
+				s.envVars["PWD"] = cwd
+			} else {
+				err := os.Chdir(args[0])
+				if err != nil {
+					fmt.Printf("Failed to cd to %s, err: %v", args[0], err)
+				}
+				cwd, err := os.Getwd()
+				if err != nil {
+					cwd = os.Getenv("PWD")
+				}
+				s.envVars["PWD"] = cwd
+
 			}
+
+			return nil
+		},
+		"pwd": func(args ...string) error {
+			fmt.Printf("%s \n", s.envVars["PWD"])
 			return nil
 		},
 		"exit": exit,
@@ -135,7 +161,6 @@ func (s *Shell) ReadInput() error {
 	if !s.scanr.Scan() {
 		return errors.New("Issue in the scanner")
 	}
-	//in future cmd will be a slice of runes and will have to handle one at a time, for now
 	s.Cmd = s.scanr.Text()
 	return nil
 }
@@ -172,26 +197,15 @@ func (s *Shell) executeCommand(cmd *parser.Command) error {
 			return err
 		}
 		return s.executeCommand(cmd.Right)
+	case parser.CommandTypeAnd:
+		err := s.executeCommand(cmd.Left)
+		if err != nil {
+			return err
+		}
+		return s.executeCommand(cmd.Right)
 	default:
 		return fmt.Errorf("Unknown command type")
 	}
-}
-func (s *Shell) Evaluate() error {
-	args := strings.Fields(s.Cmd)
-	if len(args) == 0 {
-		return errors.New("No command")
-	}
-
-	cmdName := args[0]
-
-	var cmdArgs []string
-	if len(args) > 1 {
-		cmdArgs = args[1:]
-	}
-	if cmdFunc, exists := s.commandMap[cmdName]; exists {
-		return cmdFunc(cmdArgs...)
-	}
-	return s.Execute(cmdName, cmdArgs)
 }
 
 func (s *Shell) Execute(program string, args []string) error {
@@ -240,4 +254,13 @@ func (s *Shell) printCommand(cmd *parser.Command, indent string) {
 		fmt.Printf("%sRight:\n", indent)
 		s.printCommand(cmd.Right, indent+"  ")
 	}
+}
+
+func (s *Shell) refreshCommandTrie() {
+	s.commandTrie = trie.NewTrie()
+	trie.PopulateTrieFromPath(s.commandTrie)
+}
+
+func (s *Shell) AutoComplete(prefix string) []string {
+	return s.commandTrie.Search(prefix)
 }
