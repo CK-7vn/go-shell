@@ -2,9 +2,7 @@ package trie
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
-	"time"
 )
 
 type Node struct {
@@ -54,27 +52,18 @@ func (t *Trie) CollectWords(node *Node, prefix string) []string {
 	return result
 }
 
-func PopulateTrieFromPath(trie *Trie) {
+func PopulateTrieFromPath(trie *Trie, path string) {
 	pathEnv := os.Getenv("PATH")
 	paths := strings.Split(pathEnv, string(os.PathListSeparator))
-	var latestMod time.Time
+
 	for _, path := range paths {
 		files, err := os.ReadDir(path)
 		if err != nil {
 			continue
 		}
 		for _, file := range files {
-			if !file.IsDir() {
-				filePath := filepath.Join(path, file.Name())
-				if isExecutable(filePath) {
-					trie.Insert(file.Name())
-					if info, err := file.Info(); err == nil {
-						if info.ModTime().After(latestMod) {
-							latestMod = info.ModTime()
-						}
-					}
-				}
-			}
+			// filePath := filepath.Join(path, file.Name())
+			trie.Insert(file.Name())
 		}
 	}
 }

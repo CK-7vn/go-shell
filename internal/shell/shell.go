@@ -45,6 +45,7 @@ func NewShell() *Shell {
 		commandTrie: trie.NewTrie(),
 	}
 }
+
 func (s *Shell) GetPrompt() string {
 	if prompt, exists := s.envVars["PS1"]; exists {
 		return fmt.Sprintf("%s %s >\n >", prompt, s.envVars["PWD"])
@@ -254,13 +255,4 @@ func (s *Shell) printCommand(cmd *parser.Command, indent string) {
 		fmt.Printf("%sRight:\n", indent)
 		s.printCommand(cmd.Right, indent+"  ")
 	}
-}
-
-func (s *Shell) refreshCommandTrie() {
-	s.commandTrie = trie.NewTrie()
-	trie.PopulateTrieFromPath(s.commandTrie)
-}
-
-func (s *Shell) AutoComplete(prefix string) []string {
-	return s.commandTrie.Search(prefix)
 }
