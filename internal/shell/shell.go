@@ -2,24 +2,26 @@ package shell
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
+	"go-shell/internal/input"
 	"go-shell/internal/lexer"
 	"go-shell/internal/parser"
 	"go-shell/internal/trie"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"strings"
+	"syscall"
 )
 
 type Shell struct {
-	envVars      map[string]string
-	Cmd          string
-	scanr        *bufio.Scanner
-	commandMap   map[string]func(arg ...string) error
-	commandTrie  *trie.Trie
-	currentInput string
+	envVars     map[string]string
+	Cmd         string
+	scanr       *bufio.Scanner
+	commandMap  map[string]func(arg ...string) error
+	commandTrie *trie.Trie
+	inputReader *input.InputReader
 }
 
 func defaultVar() map[string]string {
@@ -43,6 +45,7 @@ func NewShell() *Shell {
 		scanr:       bufio.NewScanner(os.Stdin),
 		commandMap:  make(map[string]func(arg ...string) error),
 		commandTrie: trie.NewTrie(),
+		inputReader: input.NewInputReader(),
 	}
 }
 
@@ -158,11 +161,38 @@ func (s *Shell) executeExternal(program string, args []string) error {
 	return cmd.Run()
 }
 
-func (s *Shell) ReadInput() error {
-	if !s.scanr.Scan() {
-		return errors.New("Issue in the scanner")
+func (s *Shell) Run() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT)
+	go func() {
+		<-sigs
+		fmt.Println("\nExiting..")
+		os.Exit(0)
+	}()
+	for {
+		fmt.Printf("a;sdlfkj %s", s.GetPrompt())
+		err := s.ReadInput()
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			continue
+		}
+		err = s.ParseAndExecute()
+		if err != nil {
+			fmt.Printf("Error executing command: %v\n", err)
+		}
 	}
-	s.Cmd = s.scanr.Text()
+}
+func (s *Shell) ReadInput() error {
+	input, err := s.inputReader.Read()
+	if err != nil {
+		return fmt.Errorf("error reading input: %v", err)
+	}
+	s.Cmd = input
+	fmt.Printf("s.cmd = %s\n", s.Cmd)
+	// if !s.scanr.Scan() {
+	// 	return errors.New("Issue in the scanner")
+	// }
+	// s.Cmd = s.scanr.Text()
 	return nil
 }
 
